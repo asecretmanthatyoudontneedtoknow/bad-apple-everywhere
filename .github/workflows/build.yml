@@ -14,8 +14,7 @@ jobs:
       - name: Install Build Tools
         run: |
           sudo apt-get update
-          # Убрали upx-ucl из установки
-          sudo apt-get install -y xorriso isolinux syslinux-common genisoimage wget
+          sudo apt-get install -y p7zip-full cpio gzip genisoimage wget
           pip install opencv-python-headless pygame pyinstaller
 
       - name: Build Standalone Binary
@@ -25,33 +24,33 @@ jobs:
             [ -e "$f" ] && ADD_DATA="$ADD_DATA --add-data $f:."
           done
           pyinstaller --onefile --clean $ADD_DATA ascii_player.py
-          # Убрали команду сжатия upx
 
-      - name: Create Bootable ISO (Alpine Based)
+      - name: Create Bootable ISO (TinyCore Based)
         run: |
-          mkdir -p iso_root/boot/isolinux
-          mkdir -p iso_root/apks
+          mkdir tc_build && cd tc_build
+          # Скачиваем официальный минимальный образ TinyCore (16 MB)
+          wget http://tinycorelinux.net/14.x/x86_64/release/CorePure64-14.0.iso
           
-          cp dist/ascii_player iso_root/ascii_player
-
-          wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/netboot/vmlinuz-virt -O iso_root/boot/vmlinuz
-          wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/netboot/initramfs-virt -O iso_root/boot/initramfs
-
-          cp /usr/lib/ISOLINUX/isolinux.bin iso_root/boot/isolinux/
-          cp /usr/lib/syslinux/modules/bios/ldlinux.c32 iso_root/boot/isolinux/
+          # Распаковываем ISO
+          7z x CorePure64-14.0.iso -oiso_root
           
-          echo "DEFAULT badapple
-          LABEL badapple
-            SAY Booting Bad Apple Everywhere...
-            KERNEL /boot/vmlinuz
-            INITRD /boot/initramfs
-            APPEND quiet console=tty0 init=/ascii_player" > iso_root/boot/isolinux/isolinux.cfg
-
-          genisoimage -o bad_apple.iso \
-            -b boot/isolinux/isolinux.bin \
-            -c boot/isolinux/boot.cat \
-            -no-emul-boot -boot-load-size 4 -boot-info-table \
-            -R -J iso_root/
+          # Распаковываем файловую систему (initramfs)
+          mkdir rootfs && cd rootfs
+          zcat ../iso_root/boot/corepure64.gz | sudo cpio -i -H newc -d
+          
+          # Копируем наш скомпилированный плеер в системную папку
+          sudo cp ../../dist/ascii_player usr/local/bin/
+          
+          # Добавляем скрипт в автозагрузку
+          sudo sh -c 'echo "clear" >> opt/bootlocal.sh'
+          sudo sh -c 'echo "/usr/local/bin/ascii_player" >> opt/bootlocal.sh'
+          
+          # Запаковываем файловую систему обратно
+          sudo find | sudo cpio -o -H newc | gzip -2 > ../iso_root/boot/corepure64.gz
+          cd ..
+          
+          # Собираем финальный загрузочный ISO-образ
+          genisoimage -l -J -R -V BAD_APPLE -no-emul-boot -boot-load-size 4 -boot-info-table -b boot/isolinux/isolinux.bin -c boot/isolinux/boot.cat -o ../bad_apple.iso iso_root
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

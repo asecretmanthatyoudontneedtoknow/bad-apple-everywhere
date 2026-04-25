@@ -64,8 +64,13 @@ def play_ascii_video():
     midi_path = midi_files[0] if midi_files else None
 
     if midi_path:
-        pygame.init()
-        pygame.mixer.music.load(midi_path)
+        try:
+            pygame.init()
+            pygame.mixer.music.load(midi_path)
+        except Exception:
+            # Если в системе (например, в ISO) нет аудиодрайверов,
+            # просто отключаем музыку и играем видео без звука
+            midi_path = None
 
     cap = cv2.VideoCapture(video_path)
     os.system('cls' if os.name == 'nt' else 'clear')
