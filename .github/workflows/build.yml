@@ -2,7 +2,7 @@ name: Build Bad Apple Everywhere
 on: [push]
 
 jobs:
-  build:
+  build-linux-iso:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,7 +14,8 @@ jobs:
       - name: Install Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y xorriso isolinux syslinux-common genisoimage upx-ucl wget
+          # Убрали upx-ucl из установки
+          sudo apt-get install -y xorriso isolinux syslinux-common genisoimage wget
           pip install opencv-python-headless pygame pyinstaller
 
       - name: Build Standalone Binary
@@ -23,23 +24,19 @@ jobs:
           for f in *.mp4 *.mid; do
             [ -e "$f" ] && ADD_DATA="$ADD_DATA --add-data $f:."
           done
-          # Собираем бинарник для Linux
           pyinstaller --onefile --clean $ADD_DATA ascii_player.py
-          upx --best dist/ascii_player
+          # Убрали команду сжатия upx
 
       - name: Create Bootable ISO (Alpine Based)
         run: |
           mkdir -p iso_root/boot/isolinux
           mkdir -p iso_root/apks
           
-          # 1. Копируем наш плеер
           cp dist/ascii_player iso_root/ascii_player
 
-          # 2. Скачиваем ядро и initrd из Alpine Linux (v3.19)
           wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/netboot/vmlinuz-virt -O iso_root/boot/vmlinuz
           wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/netboot/initramfs-virt -O iso_root/boot/initramfs
 
-          # 3. Настраиваем загрузчик ISOLINUX
           cp /usr/lib/ISOLINUX/isolinux.bin iso_root/boot/isolinux/
           cp /usr/lib/syslinux/modules/bios/ldlinux.c32 iso_root/boot/isolinux/
           
@@ -50,7 +47,6 @@ jobs:
             INITRD /boot/initramfs
             APPEND quiet console=tty0 init=/ascii_player" > iso_root/boot/isolinux/isolinux.cfg
 
-          # 4. Собираем финальный ISO
           genisoimage -o bad_apple.iso \
             -b boot/isolinux/isolinux.bin \
             -c boot/isolinux/boot.cat \
@@ -60,7 +56,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: all-platforms
+          name: linux-and-iso
           path: |
             dist/ascii_player
             bad_apple.iso
