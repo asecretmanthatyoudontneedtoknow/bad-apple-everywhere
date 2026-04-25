@@ -1,21 +1,79 @@
-name: Build ASCII Player
+name: Build Bad Apple Everywhere
 on: [push]
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with: { python-version: '3.9' }
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorriso isolinux syslinux-common genisoimage upx-ucl wget
+          pip install opencv-python-headless pygame pyinstaller
+
+      - name: Build Standalone Binary
+        run: |
+          ADD_DATA=""
+          for f in *.mp4 *.mid; do
+            [ -e "$f" ] && ADD_DATA="$ADD_DATA --add-data $f:."
+          done
+          # Собираем бинарник для Linux
+          pyinstaller --onefile --clean $ADD_DATA ascii_player.py
+          upx --best dist/ascii_player
+
+      - name: Create Bootable ISO (Alpine Based)
+        run: |
+          mkdir -p iso_root/boot/isolinux
+          mkdir -p iso_root/apks
+          
+          # 1. Копируем наш плеер
+          cp dist/ascii_player iso_root/ascii_player
+
+          # 2. Скачиваем ядро и initrd из Alpine Linux (v3.19)
+          wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/netboot/vmlinuz-virt -O iso_root/boot/vmlinuz
+          wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/netboot/initramfs-virt -O iso_root/boot/initramfs
+
+          # 3. Настраиваем загрузчик ISOLINUX
+          cp /usr/lib/ISOLINUX/isolinux.bin iso_root/boot/isolinux/
+          cp /usr/lib/syslinux/modules/bios/ldlinux.c32 iso_root/boot/isolinux/
+          
+          echo "DEFAULT badapple
+          LABEL badapple
+            SAY Booting Bad Apple Everywhere...
+            KERNEL /boot/vmlinuz
+            INITRD /boot/initramfs
+            APPEND quiet console=tty0 init=/ascii_player" > iso_root/boot/isolinux/isolinux.cfg
+
+          # 4. Собираем финальный ISO
+          genisoimage -o bad_apple.iso \
+            -b boot/isolinux/isolinux.bin \
+            -c boot/isolinux/boot.cat \
+            -no-emul-boot -boot-load-size 4 -boot-info-table \
+            -R -J iso_root/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-platforms
+          path: |
+            dist/ascii_player
+            bad_apple.iso
+
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with: { python-version: '3.9' }
-      - name: Install UPX
-        run: choco install upx
-      - name: Install Dependencies
+      - name: Build EXE
         run: |
           pip install opencv-python-headless pygame pyinstaller
-      - name: Build EXE with embedded media
-        run: |
           $files = Get-ChildItem -File | Where-Object { $_.Extension -match "\.(mp4|mid)$" }
           $add_data = ""
           foreach ($f in $files) { $add_data += " --add-data ""$($f.Name);.""" }
@@ -23,45 +81,5 @@ jobs:
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: windows-dist
+          name: windows-exe
           path: dist/ascii_player.exe
-
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with: { python-version: '3.9' }
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libsdl2-mixer-2.0-0 xorriso isolinux syslinux-common genisoimage upx-ucl
-          pip install opencv-python-headless pygame pyinstaller
-      - name: Build Binary with embedded media
-        run: |
-          ADD_DATA=""
-          for f in *.mp4 *.mid; do
-            if [ -e "$f" ]; then
-              ADD_DATA="$ADD_DATA --add-data $f:."
-            fi
-          done
-          pyinstaller --onefile --clean $ADD_DATA ascii_player.py
-      - name: Create ISO (Minimal)
-        run: |
-          mkdir -p iso_root/boot/isolinux
-          cp dist/ascii_player iso_root/ascii_player
-          echo "Run /ascii_player" > iso_root/run.sh
-          genisoimage -o player.iso -R -J iso_root/
-      
-      - name: Upload Linux Binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-dist
-          path: dist/ascii_player
-          
-      - name: Upload ISO Image
-        uses: actions/upload-artifact@v4
-        with:
-          name: iso-dist
-          path: player.iso
