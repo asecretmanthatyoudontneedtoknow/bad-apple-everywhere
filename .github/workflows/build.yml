@@ -14,7 +14,6 @@ jobs:
           pip install opencv-python pygame pyinstaller
       - name: Build EXE with embedded media
         run: |
-          # PowerShell скрипт для динамического добавления всех mp4 и mid файлов
           $files = Get-ChildItem -File | Where-Object { $_.Extension -match "\.(mp4|mid)$" }
           $add_data = ""
           foreach ($f in $files) { $add_data += " --add-data ""$($f.Name);.""" }
@@ -39,7 +38,6 @@ jobs:
           pip install opencv-python-headless pygame pyinstaller
       - name: Build Binary with embedded media
         run: |
-          # Bash скрипт для упаковки файлов под Linux
           ADD_DATA=""
           for f in *.mp4 *.mid; do
             if [ -e "$f" ]; then
@@ -50,14 +48,18 @@ jobs:
       - name: Create ISO (Minimal)
         run: |
           mkdir -p iso_root/boot/isolinux
-          # Наш бинарник уже содержит всё внутри, просто кладем его на ISO
           cp dist/ascii_player iso_root/ascii_player
           echo "Run /ascii_player" > iso_root/run.sh
           genisoimage -o player.iso -R -J iso_root/
-      - name: Upload Linux & ISO
+      
+      - name: Upload Linux Binary
         uses: actions/upload-artifact@v4
         with:
           name: linux-dist
-          path: |
-            dist/ascii_player
-            player.iso
+          path: dist/ascii_player
+          
+      - name: Upload ISO Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: iso-dist
+          path: player.iso
