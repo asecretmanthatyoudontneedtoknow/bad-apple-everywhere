@@ -2,9 +2,11 @@ import cv2
 import time
 import os
 import sys
-import pygame
 import glob
 import shutil
+
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
+import pygame
 
 if os.name == 'nt':
     import ctypes
@@ -13,32 +15,28 @@ if os.name == 'nt':
         user32 = ctypes.WinDLL('user32')
         hWnd = kernel32.GetConsoleWindow()
         if hWnd:
-            user32.ShowWindow(hWnd, 3) # 3 = SW_MAXIMIZE
+            user32.ShowWindow(hWnd, 3)
     except Exception:
         pass
 
 ASCII_CHARS = ["@", "#", "S", "%", "?", "*", "+", ";", ":", ",", ".", " "]
 
 def resource_path():
-    """getting sources"""
     try:
         return sys._MEIPASS
     except Exception:
         return os.path.abspath(".")
 
 def resize_frame(frame, term_width, term_height):
-    """changesscreen"""
     height, width, _ = frame.shape
-
     ratio = height / width * 0.45 
-
+    
     max_w = max(10, term_width - 2)
     max_h = max(10, term_height - 2)
     
     new_width = max_w
     new_height = int(new_width * ratio)
     
-
     if new_height > max_h:
         new_height = max_h
         new_width = int(new_height / ratio)
@@ -47,17 +45,10 @@ def resize_frame(frame, term_width, term_height):
     return resized, new_width, new_height
 
 def get_centered_frame(ascii_str, img_w, img_h, term_w, term_h):
-    """center"""
     lines = [ascii_str[i:(i + img_w)] for i in range(0, len(ascii_str), img_w)]
-    
-
     pad_left = max(0, (term_w - img_w) // 2)
     pad_top = max(0, (term_h - img_h) // 2)
-    
-
     padded_lines = [(" " * pad_left) + line for line in lines]
-    
-
     return ("\n" * pad_top) + "\n".join(padded_lines)
 
 def play_ascii_video():
@@ -66,7 +57,7 @@ def play_ascii_video():
     midi_files = glob.glob(os.path.join(base_dir, "*.mid"))
     
     if not video_files:
-        print("error: mp4 not found")
+        print("Error: MP4 file not found inside binary!")
         return
     
     video_path = video_files[0]
@@ -75,35 +66,36 @@ def play_ascii_video():
     if midi_path:
         pygame.init()
         pygame.mixer.music.load(midi_path)
-        time.sleep(1)
-        pygame.mixer.music.play()
 
     cap = cv2.VideoCapture(video_path)
     os.system('cls' if os.name == 'nt' else 'clear')
 
+    start_time = time.time()
+    music_started = False
+
     try:
         while cap.isOpened():
+            current_time = time.time()
+            
+            if midi_path and not music_started:
+                if (current_time - start_time) >= 0.5:
+                    pygame.mixer.music.play()
+                    music_started = True
+
             ret, frame = cap.read()
             if not ret:
                 break
 
-            # Получаем актуальный размер терминала на каждом кадре
-            # (если юзер решит поменять размер окна прямо во время видео)
             term_size = shutil.get_terminal_size((80, 24))
             term_w = term_size.columns
             term_h = term_size.lines
 
-            # Ресайз под терминал
             frame, img_w, img_h = resize_frame(frame, term_w, term_h)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             
-            # Маппинг в ASCII
             ascii_str = "".join([ASCII_CHARS[min(p // 22, 11)] for p in gray.flatten()])
-            
-            # Центрирование
             ascii_img = get_centered_frame(ascii_str, img_w, img_h, term_w, term_h)
 
-            # Вывод без мерцания
             sys.stdout.write('\033[H' + ascii_img)
             sys.stdout.flush()
             
