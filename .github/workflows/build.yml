@@ -12,8 +12,13 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install opencv-python pygame pyinstaller
-      - name: Build EXE
-        run: pyinstaller --onefile --clean ascii_player.py
+      - name: Build EXE with embedded media
+        run: |
+          # PowerShell скрипт для динамического добавления всех mp4 и mid файлов
+          $files = Get-ChildItem -File | Where-Object { $_.Extension -match "\.(mp4|mid)$" }
+          $add_data = ""
+          foreach ($f in $files) { $add_data += " --add-data ""$($f.Name);.""" }
+          Invoke-Expression "pyinstaller --onefile --clean $add_data ascii_player.py"
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
@@ -30,14 +35,22 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsdl2-mixer-2.0-0
+          sudo apt-get install -y libsdl2-mixer-2.0-0 xorriso isolinux syslinux-common genisoimage
           pip install opencv-python-headless pygame pyinstaller
-      - name: Build Binary
-        run: pyinstaller --onefile --clean ascii_player.py
+      - name: Build Binary with embedded media
+        run: |
+          # Bash скрипт для упаковки файлов под Linux
+          ADD_DATA=""
+          for f in *.mp4 *.mid; do
+            if [ -e "$f" ]; then
+              ADD_DATA="$ADD_DATA --add-data $f:."
+            fi
+          done
+          pyinstaller --onefile --clean $ADD_DATA ascii_player.py
       - name: Create ISO (Minimal)
         run: |
-          sudo apt-get install -y xorriso isolinux syslinux-common genisoimage
           mkdir -p iso_root/boot/isolinux
+          # Наш бинарник уже содержит всё внутри, просто кладем его на ISO
           cp dist/ascii_player iso_root/ascii_player
           echo "Run /ascii_player" > iso_root/run.sh
           genisoimage -o player.iso -R -J iso_root/

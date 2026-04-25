@@ -7,6 +7,15 @@ import glob
 
 ASCII_CHARS = ["@", "#", "S", "%", "?", "*", "+", ";", ":", ",", ".", " "]
 
+def resource_path():
+    """Получает путь к ресурсам, распакованным внутри .exe/.sh"""
+    try:
+        # PyInstaller создает временную папку и хранит путь в _MEIPASS
+        return sys._MEIPASS
+    except Exception:
+        # Если запускаем просто как скрипт (не скомпилированный)
+        return os.path.abspath(".")
+
 def resize_frame(frame, new_width=120):
     height, width, _ = frame.shape
     ratio = height / width * 0.45
@@ -14,18 +23,18 @@ def resize_frame(frame, new_width=120):
     return cv2.resize(frame, (new_width, new_height))
 
 def play_ascii_video():
-    # Автоматический поиск файлов
-    video_files = glob.glob("*.mp4")
-    midi_files = glob.glob("*.mid")
+    # Ищем файлы во временной директории экзешника
+    base_dir = resource_path()
+    video_files = glob.glob(os.path.join(base_dir, "*.mp4"))
+    midi_files = glob.glob(os.path.join(base_dir, "*.mid"))
     
     if not video_files:
-        print("Ошибка: MP4 файл не найден!")
+        print("Ошибка: MP4 файл не зашит в программу!")
         return
     
     video_path = video_files[0]
     midi_path = midi_files[0] if midi_files else None
 
-    # Инициализация звука
     if midi_path:
         pygame.init()
         pygame.mixer.music.load(midi_path)
