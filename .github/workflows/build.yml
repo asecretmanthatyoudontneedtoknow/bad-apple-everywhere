@@ -36,7 +36,7 @@ jobs:
         run: pyinstaller --onefile --clean ascii_player.py
       - name: Create ISO (Minimal)
         run: |
-          sudo apt-get install -y xorriso isolinux syslinux-common
+          sudo apt-get install -y xorriso isolinux syslinux-common genisoimage
           mkdir -p iso_root/boot/isolinux
           cp dist/ascii_player iso_root/ascii_player
           echo "Run /ascii_player" > iso_root/run.sh
