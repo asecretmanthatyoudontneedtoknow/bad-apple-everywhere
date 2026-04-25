@@ -1,0 +1,48 @@
+name: Build ASCII Player
+on: [push]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with: { python-version: '3.9' }
+      - name: Install Dependencies
+        run: |
+          pip install opencv-python pygame pyinstaller
+      - name: Build EXE
+        run: pyinstaller --onefile --clean ascii_player.py
+      - name: Upload EXE
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-dist
+          path: dist/ascii_player.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-mixer-2.0-0
+          pip install opencv-python-headless pygame pyinstaller
+      - name: Build Binary
+        run: pyinstaller --onefile --clean ascii_player.py
+      - name: Create ISO (Minimal)
+        run: |
+          sudo apt-get install -y xorriso isolinux syslinux-common
+          mkdir -p iso_root/boot/isolinux
+          cp dist/ascii_player iso_root/ascii_player
+          # Здесь обычно добавляется ядро Linux, но для примера создаем структуру
+          echo "Run /ascii_player" > iso_root/run.sh
+          genisoimage -o player.iso -R -J iso_root/
+      - name: Upload Linux & ISO
+        uses: actions/upload-artifact@v3
+        with:
+          name: linux-dist
+          path: |
+            dist/ascii_player
+            player.iso
