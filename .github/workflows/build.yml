@@ -9,9 +9,11 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v5
         with: { python-version: '3.9' }
+      - name: Install UPX
+        run: choco install upx
       - name: Install Dependencies
         run: |
-          pip install opencv-python pygame pyinstaller
+          pip install opencv-python-headless pygame pyinstaller
       - name: Build EXE with embedded media
         run: |
           $files = Get-ChildItem -File | Where-Object { $_.Extension -match "\.(mp4|mid)$" }
@@ -34,7 +36,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsdl2-mixer-2.0-0 xorriso isolinux syslinux-common genisoimage
+          sudo apt-get install -y libsdl2-mixer-2.0-0 xorriso isolinux syslinux-common genisoimage upx-ucl
           pip install opencv-python-headless pygame pyinstaller
       - name: Build Binary with embedded media
         run: |
