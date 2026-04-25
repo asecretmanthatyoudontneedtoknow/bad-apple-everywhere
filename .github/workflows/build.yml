@@ -5,9 +5,9 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with: { python-version: '3.9' }
       - name: Install Dependencies
         run: |
@@ -15,7 +15,7 @@ jobs:
       - name: Build EXE
         run: pyinstaller --onefile --clean ascii_player.py
       - name: Upload EXE
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-dist
           path: dist/ascii_player.exe
@@ -23,7 +23,10 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with: { python-version: '3.9' }
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -36,11 +39,10 @@ jobs:
           sudo apt-get install -y xorriso isolinux syslinux-common
           mkdir -p iso_root/boot/isolinux
           cp dist/ascii_player iso_root/ascii_player
-          # Здесь обычно добавляется ядро Linux, но для примера создаем структуру
           echo "Run /ascii_player" > iso_root/run.sh
           genisoimage -o player.iso -R -J iso_root/
       - name: Upload Linux & ISO
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux-dist
           path: |
