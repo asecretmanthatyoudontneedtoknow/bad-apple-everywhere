@@ -78,7 +78,7 @@ def play_ascii_video():
             current_time = time.time()
             
             if midi_path and not music_started:
-                if (current_time - start_time) >= 1.0:
+                if (current_time - start_time) >= 1.420:
                     pygame.mixer.music.play()
                     music_started = True
 
